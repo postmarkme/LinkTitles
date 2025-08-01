@@ -25,14 +25,15 @@
 namespace LinkTitles;
 
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Title\Title as MWTitle;
 
 /**
  * Represents a page that is a potential link target.
  */
 class Target {
 	/**
-	 * A Title object for the target page currently being examined.
-	 * @var \Title $title
+	 * A MWTitle object for the target page currently being examined.
+	 * @var MWTitle $title
 	 */
 	private $title;
 
@@ -76,7 +77,7 @@ class Target {
 	 * @param String &$title Title of the target page
 	 */
 	public function __construct( $namespace, $title, Config &$config ) {
-		$this->title = \Title::makeTitleSafe( $namespace, $title );
+		$this->title = MWTitle::makeTitleSafe( $namespace, $title );
 		$this->titleValue = $this->title->getTitleValue();
 		$this->config = $config;
 
@@ -252,7 +253,7 @@ class Target {
 	/**
  	 * Obtain a page's content.
 	 * Workaround for MediaWiki 1.36+ which deprecated Wikipage::factory.
-	 * @param  \Title $title
+	 * @param  MWTitle $title
 	 * @return Content content object of the page
 	 */
 	private static function getPageContents( $title ) {

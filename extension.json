@@ -39,6 +39,9 @@
                 "LinkTitlesTargetNamespaces": [],
                 "LinkTitlesSameNamespace": true
         },
+        "AutoloadNamespaces": {
+                "LinkTitles\\": "includes/"
+        },
         "AutoloadClasses": {
                 "LinkTitles\\Extension": "includes/Extension.php",
                 "LinkTitles\\Linker": "includes/Linker.php",

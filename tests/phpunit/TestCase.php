@@ -21,8 +21,9 @@
  * @author Daniel Kraus <bovender@bovender.de>
  */
 namespace LinkTitles;
+use MediaWikiIntegrationTestCase;
 
-abstract class TestCase extends \MediaWikiTestCase {
+abstract class TestCase extends MediaWikiIntegrationTestCase  {
 	protected function setUp(): void
 	{
 		parent::setUp();

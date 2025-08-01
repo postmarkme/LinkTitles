@@ -1,16 +1,17 @@
 # This Dockerfile can be used to create a Docker image/container
 # that runs the unit tests on the LinkTitles extension.
-FROM mediawiki:1.37
+FROM mediawiki:1.44
 LABEL "MAINTAINER" Daniel Kraus (https://www.bovender.de)
+
 RUN apt-get update -yqq && \
 	apt-get install -yqq \
-	php7.4-sqlite \
 	sqlite3 \
 	unzip \
 	zip
 
 WORKDIR /var/www/html
 ADD install-composer.sh install-composer.sh
+RUN sed -i 's/\r$//' install-composer.sh
 RUN chmod +x install-composer.sh
 RUN ./install-composer.sh
 

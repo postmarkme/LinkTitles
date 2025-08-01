@@ -36,7 +36,7 @@ class TargetsTest extends LinkTitles\TestCase {
 		// LinkTitlesLinkerTest::testLinkContentTargetNamespaces() is every changed,
 		// this test will fail.
 		$config->targetNamespaces = [ 4000 ];
-		$title = \Title::newFromText( 'link target' );
+		$title = Title::newFromText( 'link target' );
 		$targets = LinkTitles\Targets::singleton( $title, $config );
 
 		// Count number of articles: Inspired by updateArticleCount.php maintenance
