@@ -353,11 +353,17 @@ this line as a heading (if it starts and ends with pound signs).
 
 ### Prioritizing pages with short titles
 
-    $wgLinkTitlesPreferShortTitles = false;
+    $wgLinkTitlesPreferShortTitles = true;
 
 If `$wgLinkTitlesPreferShortTitles` is set to `true`, parsing will begin with
-shorter page titles. By default, the extension will attempt to link the longest
-page titles first, as these generally tend to be more specific.
+shorter page titles.
+
+You may want to explicitly set this to `false`, so that the extension will
+attempt to link the longest page titles first, as these generally tend to be
+more specific.
+
+(An earlier version of this document erroneously claimed that the default
+setting was `false`, but this was not the way it was defined in the code.)
 
 ### Filtering pages by title length
 
