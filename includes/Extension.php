@@ -2,25 +2,7 @@
 
 /**
  * The LinkTitles\Extension class provides event handlers and entry points for the extension.
- *
- * Copyright 2012-2024 Daniel Kraus <bovender@bovender.de> ('bovender')
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301, USA.
- *
- * @author Daniel Kraus <bovender@bovender.de>
+ * Updated for MediaWiki 1.39+ compatibility.
  */
 
 namespace LinkTitles;
@@ -29,7 +11,6 @@ use CommentStoreComment;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Revision\RenderedRevision;
 use MediaWiki\Revision\SlotRecord;
-use MediaWiki\Title\Title as MWTitle;
 use Status;
 use WikiPage;
 use User;
@@ -58,17 +39,25 @@ class Extension {
 		if ( !$config->parseOnEdit || $isMinor ) return true;
 
 		$revision = $renderedRevision->getRevision();
-		$title = $revision->getPageAsLinkTarget();
+		
+		// FIXED: Use getPage() instead of getPageAsLinkTarget() 
+		// getPage() returns a PageReference which implements PageIdentity
+		$pageIdentity = $revision->getPage(); 
+		
 		$slots = $revision->getSlots();
 		$content = $slots->getContent( SlotRecord::MAIN );
 
+		$services = MediaWikiServices::getInstance();
+		
 		// MW 1.36+
-		if ( method_exists( MediaWikiServices::class, 'getWikiPageFactory' ) ) {
-			$wikiPageFactory = MediaWikiServices::getInstance()->getWikiPageFactory();
-			$wikiPage = $wikiPageFactory->newFromLinkTarget( $title );
+		if ( method_exists( $services, 'getWikiPageFactory' ) ) {
+			$wikiPageFactory = $services->getWikiPageFactory();
+			$wikiPage = $wikiPageFactory->newFromTitle( $pageIdentity );
 		} else {
-			$wikiPage = WikiPage::factory( $title );
+			// Fallback for older versions using the LinkTarget
+			$wikiPage = WikiPage::factory( \Title::newFromLinkTarget( $revision->getPageAsLinkTarget() ) );
 		}
+		
 		$source = Source::createFromPageandContent( $wikiPage, $content, $config );
 		$linker = new Linker( $config );
 		$result = $linker->linkContent( $source );
@@ -82,13 +71,10 @@ class Extension {
 
 	/*
 	 * Event handler for the InternalParseBeforeLinks hook.
-	 *
-	 * This handler is used if the parseOnRender configuration option is set.
 	 */
 	public static function onInternalParseBeforeLinks( \Parser &$parser, &$text ) {
 		$config = new Config();
 		if ( !$config->parseOnRender ) return true;
-		$title = $parser->getTitle();
 		$source = Source::createFromParserAndText( $parser, $text, $config );
 		$linker = new Linker( $config );
 		$result = $linker->linkContent( $source );
@@ -101,13 +87,11 @@ class Extension {
 	/**
 	 * Adds links to a single page.
 	 *
-	 * Entry point for the SpecialLinkTitles class and the LinkTitlesJob class.
-	 *
-	 * @param  MWTitle $title MWTitle object.
-	 * @param  \RequestContext $context Current request context. If in doubt, call MediaWiki's `RequestContext::getMain()` to obtain such an object.
+	 * @param  mixed $title Title object.
+	 * @param  \IContextSource $context Current request context.
 	 * @return bool True if the page exists, false if the page does not exist
 	 */
-	public static function processPage( MWTitle $title, \RequestContext $context ) {
+	public static function processPage( $title, \IContextSource $context ) {
 		$config = new Config();
 		$source = Source::createFromTitle( $title, $config );
 		if ( $source->hasContent() ) {
@@ -118,8 +102,12 @@ class Extension {
 
 				$updater = $source->getPage()->newPageUpdater( $context->getUser());
 				$updater->setContent( SlotRecord::MAIN, $content );
+				
+				// Ensure wfMessage returns a string
+				$commentText = \wfMessage( 'linktitles-bot-comment', self::URL )->text();
+				
 				$updater->saveRevision(
-					CommentStoreComment::newUnsavedComment(\wfMessage( 'linktitles-bot-comment', self::URL )),
+					CommentStoreComment::newUnsavedComment( $commentText ),
 					EDIT_MINOR | EDIT_FORCE_BOT
 				);
 			};
@@ -130,34 +118,17 @@ class Extension {
 		}
 	}
 
-	/*
-	 * Adds the two magic words defined by this extension to the list of
-	 * 'double-underscore' terms that are automatically removed before a
-	 * page is displayed.
-	 *
-	 * @param  Array $doubleUnderscoreIDs Array of magic word IDs.
-	 * @return true
-	 */
 	public static function onGetDoubleUnderscoreIDs( array &$doubleUnderscoreIDs ) {
 		$doubleUnderscoreIDs[] = 'MAG_LINKTITLES_NOTARGET';
 		$doubleUnderscoreIDs[] = 'MAG_LINKTITLES_NOAUTOLINKS';
 		return true;
 	}
 
-	/**
-	 * Handles the ParserFirstCallInit hook and adds the <autolink>/</noautolink>
-	 * tags.
-	 */
 	public static function onParserFirstCallInit( \Parser $parser ) {
 		$parser->setHook( 'noautolinks', 'LinkTitles\Extension::doNoautolinksTag' );
 		$parser->setHook( 'autolinks', 'LinkTitles\Extension::doAutolinksTag' );
 	}
 
-	/*
-	 *	Removes the extra tag that this extension provides (<noautolinks>)
-	 *	by simply returning the text between the tags (if any).
-	 *	See https://www.mediawiki.org/wiki/Manual:Tag_extensions#Example
-	 */
 	public static function doNoautolinksTag( $input, array $args, \Parser $parser, \PPFrame $frame ) {
 		Linker::lock();
 		$result =  $parser->recursiveTagParse( $input, $frame );
@@ -165,11 +136,6 @@ class Extension {
 		return $result;
 	}
 
-	/*
-	 *	Removes the extra tag that this extension provides (<noautolinks>)
-	 *	by simply returning the text between the tags (if any).
-	 *	See https://www.mediawiki.org/wiki/Manual:Tag_extensions#How_do_I_render_wikitext_in_my_extension.3F
-	 */
 	public static function doAutolinksTag( $input, array $args, \Parser $parser, \PPFrame $frame ) {
 		$config = new Config();
 		$linker = new Linker( $config );
@@ -184,5 +150,3 @@ class Extension {
 		}
 	}
 }
-
-// vim: ts=2:sw=2:noet:comments^=\:///

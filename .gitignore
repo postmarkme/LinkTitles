@@ -10,3 +10,4 @@ doxygen_sqlite3.db
 /LinkTitles.sln
 /LinkTitles.v12.suo
 release/
+.DS_Store
